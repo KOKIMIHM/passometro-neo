@@ -1,42 +1,62 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime
+import json
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Configuração da página
 st.set_page_config(page_title="Passômetro UTI Neo", layout="wide")
 
 # --- INICIALIZANDO A MEMÓRIA DO APLICATIVO ---
-# Isso é necessário para o botão "Copiar" conseguir preencher as caixas sozinho
 if "form_leito" not in st.session_state: st.session_state.form_leito = ""
 if "form_idade" not in st.session_state: st.session_state.form_idade = ""
 if "form_vent" not in st.session_state: st.session_state.form_vent = ""
 if "form_dados" not in st.session_state: st.session_state.form_dados = ""
 if "form_prop" not in st.session_state: st.session_state.form_prop = ""
 
-# Função que busca o último registro de um leito específico
+# --- CONEXÃO COM O GOOGLE SHEETS ---
+@st.cache_resource
+def conectar_google_sheets():
+    try:
+        # Lê a chave secreta que você salvou na nuvem
+        cred_dict = json.loads(st.secrets["google_secret"])
+        credentials = Credentials.from_service_account_info(
+            cred_dict,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+        client = gspread.authorize(credentials)
+        # Abre a planilha exata do seu Drive
+        planilha = client.open("Base_Passometro").sheet1
+        return planilha
+    except Exception as e:
+        st.error("⚠️ Não foi possível conectar ao Google Sheets. Verifique os Secrets.")
+        return None
+
+planilha_google = conectar_google_sheets()
+
+# --- FUNÇÃO: COPIAR ÚLTIMO REGISTRO ---
 def copiar_ultimo_registro():
-    arquivo = "historico_plantao.csv"
-    if os.path.exists(arquivo):
-        df = pd.read_csv(arquivo, sep=';')
-        # Filtra a tabela para achar só as linhas do leito que está digitado
-        leito_atual = st.session_state.form_leito
-        if leito_atual != "":
-            df_filtrado = df[df["Leito"] == leito_atual]
-            if not df_filtrado.empty:
-                ultima_linha = df_filtrado.iloc[-1] # Pega a última anotação desse leito
+    if planilha_google is not None:
+        dados = planilha_google.get_all_records()
+        if len(dados) > 0:
+            df = pd.DataFrame(dados)
+            leito_atual = str(st.session_state.form_leito).strip()
+            
+            if leito_atual != "":
+                df['Leito'] = df['Leito'].astype(str)
+                df_filtrado = df[df['Leito'] == leito_atual]
                 
-                # Preenche a memória do app com os dados antigos
-                st.session_state.form_idade = str(ultima_linha.get("Idade/Dias", ""))
-                st.session_state.form_vent = str(ultima_linha.get("Ventilação", ""))
-                st.session_state.form_dados = str(ultima_linha.get("Dados Clínicos", ""))
-                st.session_state.form_prop = str(ultima_linha.get("Proposta Terapêutica", ""))
+                if not df_filtrado.empty:
+                    ultima_linha = df_filtrado.iloc[-1]
+                    st.session_state.form_idade = str(ultima_linha.get("Idade/Dias", ""))
+                    st.session_state.form_vent = str(ultima_linha.get("Ventilação", ""))
+                    st.session_state.form_dados = str(ultima_linha.get("Dados Clínicos", ""))
+                    st.session_state.form_prop = str(ultima_linha.get("Proposta Terapêutica", ""))
+                else:
+                    st.warning(f"Nenhum registro anterior encontrado para o leito {leito_atual}.")
             else:
-                st.warning(f"Nenhum registro anterior encontrado para o leito {leito_atual}.")
-        else:
-            st.warning("Por favor, digite o número do Leito antes de clicar em Copiar.")
-    else:
-        st.warning("Ainda não há histórico salvo para copiar.")
+                st.warning("Por favor, digite o número do Leito antes de clicar em Copiar.")
 
 # ==========================================
 # INÍCIO DA INTERFACE
@@ -57,52 +77,52 @@ st.divider()
 # --- SESSÃO: DADOS DO PACIENTE ---
 st.subheader("Paciente e Parâmetros")
 
-# Botão de copiar antes das caixas de texto
 st.button("🔄 Copiar último registro deste Leito", on_click=copiar_ultimo_registro, type="secondary")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    # O "key" conecta a caixa de texto com a memória do app
     leito = st.text_input("Leito e Nome do Paciente", key="form_leito")
 with col2:
     idade = st.text_input("Idade Gestacional / Dias de Vida", key="form_idade")
 
-# Caixas de texto para o handover
 ventilacao = st.text_area("Parâmetros Ventilatórios Atuais (VM/VNI/Cateter)", height=100, key="form_vent")
 dados = st.text_area("Dados Clínicos e Intercorrências", height=100, key="form_dados")
 
 st.subheader("Proposta Terapêutica")
 proposta = st.text_area("Condutas", height=100, key="form_prop")
 
-# Botão de salvar
+# --- BOTÃO DE SALVAR NO GOOGLE ---
 if st.button("Salvar Plantão", type="primary"):
     if leito == "":
         st.error("O campo 'Leito' é obrigatório!")
+    elif planilha_google is None:
+        st.error("A conexão com a nuvem falhou.")
     else:
-        novo_registro = {
-            "Data do Registro": [datetime.now().strftime("%d/%m/%Y %H:%M")],
-            "Data do Plantão": [data_plantao.strftime("%d/%m/%Y")],
-            "Turno": [turno],
-            "Leito": [leito],
-            "Idade/Dias": [idade],
-            "Ventilação": [ventilacao],
-            "Dados Clínicos": [dados],
-            "Proposta Terapêutica": [proposta]
-        }
+        # Prepara a linha exata com as colunas da sua planilha
+        nova_linha = [
+            datetime.now().strftime("%d/%m/%Y %H:%M"),
+            data_plantao.strftime("%d/%m/%Y"),
+            turno,
+            leito,
+            idade,
+            ventilacao,
+            dados,
+            proposta
+        ]
         
-        tabela_pandas = pd.DataFrame(novo_registro)
-        nome_do_arquivo = "historico_plantao.csv"
-        arquivo_existe = os.path.exists(nome_do_arquivo)
-        
-        tabela_pandas.to_csv(nome_do_arquivo, mode='a', index=False, header=not arquivo_existe, sep=';', encoding='utf-8-sig')
-        
-        st.success(f"Passômetro do leito {leito} salvo com sucesso!")
+        # Envia direto para o Google Drive
+        planilha_google.append_row(nova_linha)
+        st.success(f"Passômetro do leito {leito} salvo no Google Drive com sucesso!")
 
-# --- NOVA SESSÃO: EDIÇÃO DIRETA NA TABELA ---
+# --- SESSÃO: LENDO O HISTÓRICO DA NUVEM ---
 st.divider()
-st.subheader("📚 Histórico e Edição")
-st.caption("Dê um duplo clique em qualquer célula abaixo para editar o texto. Depois clique em 'Salvar Alterações'.")
+st.subheader("📚 Histórico de Plantões (Google Sheets)")
 
-if os.path.exists("historico_plantao.csv"):
-    tabela_historico = pd
+if planilha_google is not None:
+    dados_planilha = planilha_google.get_all_records()
+    if len(dados_planilha) > 0:
+        tabela_historico = pd.DataFrame(dados_planilha)
+        st.dataframe(tabela_historico, use_container_width=True)
+    else:
+        st.info("A planilha está vazia. Salve o primeiro paciente para testar!")
