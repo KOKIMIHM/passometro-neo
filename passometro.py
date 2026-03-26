@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 # Configuração da página
-st.set_page_config(page_title="Passômetro ITU Neo", layout="wide")
+st.set_page_config(page_title="Passômetro UTI Neo", layout="wide")
 
 # --- INICIALIZANDO A MEMÓRIA DO APLICATIVO ---
 # Isso é necessário para o botão "Copiar" conseguir preencher as caixas sozinho
@@ -41,7 +41,7 @@ def copiar_ultimo_registro():
 # ==========================================
 # INÍCIO DA INTERFACE
 # ==========================================
-st.title("Passômetro - Fisioterapia ITU Neonatal")
+st.title("Passômetro - Fisioterapia UTI Neonatal")
 st.divider()
 
 st.subheader("Informações do Plantão")
