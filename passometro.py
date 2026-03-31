@@ -8,12 +8,26 @@ from google.oauth2.service_account import Credentials
 # Configuração da página
 st.set_page_config(page_title="Passômetro UTI Neo", layout="wide")
 
-# --- INICIALIZANDO A MEMÓRIA DO APLICATIVO ---
+## --- INICIALIZANDO A MEMÓRIA DO APLICATIVO ---
 if "form_leito" not in st.session_state: st.session_state.form_leito = ""
 if "form_idade" not in st.session_state: st.session_state.form_idade = ""
 if "form_vent" not in st.session_state: st.session_state.form_vent = ""
 if "form_dados" not in st.session_state: st.session_state.form_dados = ""
 if "form_prop" not in st.session_state: st.session_state.form_prop = ""
+
+# --- O TRUQUE DE LIMPEZA SEGURA ---
+# Cria a "bandeira" de aviso se ela não existir
+if "limpar_agora" not in st.session_state: 
+    st.session_state.limpar_agora = False
+
+# Se o botão lá embaixo levantou a bandeira, ele limpa a memória ANTES de desenhar a tela
+if st.session_state.limpar_agora:
+    st.session_state.form_leito = ""
+    st.session_state.form_idade = ""
+    st.session_state.form_vent = ""
+    st.session_state.form_dados = ""
+    st.session_state.form_prop = ""
+    st.session_state.limpar_agora = False # Abaixa a bandeira
 
 # --- CONEXÃO COM O GOOGLE SHEETS ---
 @st.cache_resource
@@ -95,37 +109,44 @@ dados = st.text_area("Dados Clínicos e Intercorrências", height=100, key="form
 st.subheader("Proposta Terapêutica")
 proposta = st.text_area("Condutas", height=100, key="form_prop")
 
-# --- BOTÃO DE SALVAR NO GOOGLE ---
-if st.button("Salvar Plantão", type="primary"):
-    if leito == "":
-        st.error("O campo 'Leito' é obrigatório!")
-    elif planilha_google is None:
-        st.error("A conexão com a nuvem falhou.")
-    else:
-        # Prepara a linha exata com as colunas da sua planilha
-        nova_linha = [
-            datetime.now().strftime("%d/%m/%Y %H:%M"),
-            data_plantao.strftime("%d/%m/%Y"),
-            turno,
-            leito,
-            idade,
-            ventilacao,
-            dados,
-            proposta
-        ]
-        
-        # Envia direto para o Google Drive
-        planilha_google.append_row(nova_linha)
-        st.success(f"Passômetro do leito {leito} salvo no Google Drive com sucesso!")
+# --- FUNÇÃO PARA LIMPAR TUDO ---
+def limpar_formulario():
+    st.session_state.form_leito = ""
+    st.session_state.form_idade = ""
+    st.session_state.form_vent = ""
+    st.session_state.form_dados = ""
+    st.session_state.form_prop = ""
 
-# --- SESSÃO: LENDO O HISTÓRICO DA NUVEM ---
-st.divider()
-st.subheader("📚 Histórico de Plantões (Google Sheets)")
+# --- BOTÕES DE AÇÃO ---
+col_salvar, col_limpar = st.columns(2)
 
-if planilha_google is not None:
-    dados_planilha = planilha_google.get_all_records()
-    if len(dados_planilha) > 0:
-        tabela_historico = pd.DataFrame(dados_planilha)
-        st.dataframe(tabela_historico, use_container_width=True)
-    else:
-        st.info("A planilha está vazia. Salve o primeiro paciente para testar!")
+with col_salvar:
+    if st.button("💾 Salvar Plantão", type="primary", use_container_width=True):
+        if leito == "":
+            st.error("O campo 'Leito' é obrigatório!")
+        elif planilha_google is None:
+            st.error("A conexão com a nuvem falhou.")
+        else:
+            nova_linha = [
+                datetime.now().strftime("%d/%m/%Y %H:%M"),
+                data_plantao.strftime("%d/%m/%Y"),
+                turno,
+                leito,
+                idade,
+                ventilacao,
+                dados,
+                proposta
+            ]
+            
+            planilha_google.append_row(nova_linha)
+            st.success("Salvo no Google Drive com sucesso!")
+            
+            # Levanta a bandeira de limpeza e reinicia a tela
+            st.session_state.limpar_agora = True
+            st.rerun()
+
+with col_limpar:
+    if st.button("🗑️ Limpar Campos", type="secondary", use_container_width=True):
+        # O botão de limpar manual faz a mesma coisa
+        st.session_state.limpar_agora = True
+        st.rerun()
