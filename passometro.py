@@ -23,14 +23,17 @@ def conectar_google_sheets():
         cred_dict = json.loads(st.secrets["google_secret"])
         credentials = Credentials.from_service_account_info(
             cred_dict,
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
         )
         client = gspread.authorize(credentials)
         # Abre a planilha exata do seu Drive
         planilha = client.open("Base_Passometro").sheet1
         return planilha
     except Exception as e:
-        st.error("⚠️ Não foi possível conectar ao Google Sheets. Verifique os Secrets.")
+        st.error(f"⚠️ Erro detalhado: {e}")
         return None
 
 planilha_google = conectar_google_sheets()
