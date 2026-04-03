@@ -117,36 +117,29 @@ def limpar_formulario():
     st.session_state.form_dados = ""
     st.session_state.form_prop = ""
 
-# --- BOTÕES DE AÇÃO ---
-col_salvar, col_limpar = st.columns(2)
-
-with col_salvar:
-    if st.button("💾 Salvar Plantão", type="primary", use_container_width=True):
-        if leito == "":
-            st.error("O campo 'Leito' é obrigatório!")
-        elif planilha_google is None:
-            st.error("A conexão com a nuvem falhou.")
-        else:
-            nova_linha = [
-                datetime.now().strftime("%d/%m/%Y %H:%M"),
-                data_plantao.strftime("%d/%m/%Y"),
-                turno,
-                leito,
-                idade,
-                ventilacao,
-                dados,
-                proposta
-            ]
-            
-            planilha_google.append_row(nova_linha)
-            st.success("Salvo no Google Drive com sucesso!")
-            
-            # Levanta a bandeira de limpeza e reinicia a tela
-            st.session_state.limpar_agora = True
-            st.rerun()
-
-with col_limpar:
-    if st.button("🗑️ Limpar Campos", type="secondary", use_container_width=True):
-        # O botão de limpar manual faz a mesma coisa
+# --- BOTÃO DE AÇÃO PRINCIPAL ---
+# Tiramos as colunas para o botão ficar grandão na tela do celular
+if st.button("💾 Salvar Plantão e Limpar", type="primary", use_container_width=True):
+    if leito == "":
+        st.error("O campo 'Leito' é obrigatório!")
+    elif planilha_google is None:
+        st.error("A conexão com a nuvem falhou.")
+    else:
+        nova_linha = [
+            datetime.now().strftime("%d/%m/%Y %H:%M"),
+            data_plantao.strftime("%d/%m/%Y"),
+            turno,
+            leito,
+            idade,
+            ventilacao,
+            dados,
+            proposta
+        ]
+        
+        # 1. Salva no Google Drive
+        planilha_google.append_row(nova_linha)
+        st.success("Salvo no Google Drive com sucesso!")
+        
+        # 2. Levanta a bandeira para limpar a tela e reinicia
         st.session_state.limpar_agora = True
         st.rerun()
