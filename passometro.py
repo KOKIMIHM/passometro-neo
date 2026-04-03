@@ -53,27 +53,48 @@ def conectar_google_sheets():
 planilha_google = conectar_google_sheets()
 
 # --- FUNÇÃO: COPIAR ÚLTIMO REGISTRO ---
-def copiar_ultimo_registro():
-    if planilha_google is not None:
-        dados = planilha_google.get_all_records()
-        if len(dados) > 0:
-            df = pd.DataFrame(dados)
-            leito_atual = str(st.session_state.form_leito).strip()
+def copiar_ultimo_registro(leito_busca, planilha):
+    try:
+        # Puxa os dados da planilha
+        dados = planilha.get_all_records()
+        
+        # 1. Verifica se a planilha está totalmente vazia (só cabeçalho)
+        if not dados:
+            st.warning("A planilha ainda não possui plantões salvos.")
+            return
+
+        # Converte para tabela do Pandas
+        df = pd.DataFrame(dados)
+
+        # 2. Verifica se a coluna 'Leito' realmente existe lá no Google Sheets
+        if 'Leito' not in df.columns:
+            st.error("Atenção: A coluna 'Leito' sumiu ou está escrita errado lá na primeira linha do Google Sheets.")
+            return
+
+        # 3. Transforma tudo em texto e limpa espaços invisíveis (evita erro de digitação)
+        df['Leito'] = df['Leito'].astype(str).str.strip()
+        leito_busca = str(leito_busca).strip()
+
+        # Procura o paciente
+        historico = df[df['Leito'] == leito_busca]
+
+        # 4. Se não achar ninguém, avisa. Se achar, copia.
+        if historico.empty:
+            st.warning(f"Nenhum registro anterior encontrado para o leito {leito_busca}.")
+        else:
+            ultimo = historico.iloc[-1]
             
-            if leito_atual != "":
-                df['Leito'] = df['Leito'].astype(str)
-                df_filtrado = df[df['Leito'] == leito_atual]
-                
-                if not df_filtrado.empty:
-                    ultima_linha = df_filtrado.iloc[-1]
-                    st.session_state.form_idade = str(ultima_linha.get("Idade/Dias", ""))
-                    st.session_state.form_vent = str(ultima_linha.get("Ventilação", ""))
-                    st.session_state.form_dados = str(ultima_linha.get("Dados Clínicos", ""))
-                    st.session_state.form_prop = str(ultima_linha.get("Proposta Terapêutica", ""))
-                else:
-                    st.warning(f"Nenhum registro anterior encontrado para o leito {leito_atual}.")
-            else:
-                st.warning("Por favor, digite o número do Leito antes de clicar em Copiar.")
+            # Joga os dados para a tela
+            # Usamos .get() para evitar que o código quebre se alguma outra coluna estiver faltando
+            st.session_state.idade = str(ultimo.get('Idade', ''))
+            st.session_state.ventilacao = str(ultimo.get('Ventilação', ''))
+            st.session_state.dados = str(ultimo.get('Dados/Dieta/Acessos', ''))
+            st.session_state.proposta = str(ultimo.get('Proposta', ''))
+            
+            st.success("Dados copiados com sucesso!")
+
+    except Exception as e:
+        st.error(f"Erro ao puxar dados: {e}")
 
 # ==========================================
 # INÍCIO DA INTERFACE
