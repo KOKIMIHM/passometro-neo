@@ -81,7 +81,7 @@ def gerar_pdf(data_plantao, turno, leito, idade, vent, dados, prop):
     
     # Cabeçalho
     pdf.set_font("helvetica", style="B", size=16)
-    pdf.cell(0, 10, "Resumo da Evolução - UTI Neonatal HRAD", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 10, "Passômetro Diário - UTI Neonatal HRAD", new_x="LMARGIN", new_y="NEXT", align="C")
     
     pdf.set_font("helvetica", size=12)
     pdf.cell(0, 10, f"Data: {data_plantao}   |   Turno: {turno}", new_x="LMARGIN", new_y="NEXT", align="C")
@@ -141,7 +141,7 @@ leito = st.text_input("Leito e Nome do Paciente", key="form_leito", on_change=au
 idade = st.text_input("Idade", key="form_idade")
 ventilacao = st.text_input("Ventilação Mecânica", key="form_vent")
 dados = st.text_area("Dados Clínicos e Intercorrências", key="form_dados", height=150)
-proposta = st.text_area("Proposta Terap", key="form_prop", height=100)
+proposta = st.text_area("Proposta Terapêutica", key="form_prop", height=100)
 
 st.divider()
 
@@ -176,7 +176,7 @@ if "pdf_pronto" in st.session_state:
     with col_pdf:
         # Botão mágico do Streamlit que faz o download do arquivo
         st.download_button(
-            label="📄 Baixar Resumo em PDF",
+            label="📄 Baixar em PDF",
             data=st.session_state.pdf_pronto,
             file_name=st.session_state.nome_arquivo,
             mime="application/pdf",
@@ -185,7 +185,7 @@ if "pdf_pronto" in st.session_state:
         
     with col_limpar:
         # Botão para limpar a tela para o próximo paciente
-        if st.button("🧹 Limpar para Próximo Leito", use_container_width=True):
+        if st.button("🧹 Limpar Campos", use_container_width=True):
             del st.session_state.pdf_pronto
             st.session_state.limpar_agora = True
             st.rerun()
