@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import json
 import gspread
 from google.oauth2.service_account import Credentials
@@ -207,9 +207,13 @@ if st.button("💾 Salvar Plantão", type="primary", use_container_width=True):
     else:
         data_formatada = data_plantao.strftime("%d/%m/%Y")
         
+       # Criando o fuso de Brasília (UTC -3)
+        fuso_br = timezone(timedelta(hours=-3))
+        
+          
         # Array atualizado para bater com as novas colunas no Google Sheets (incluindo pronga)
         nova_linha = [
-            datetime.now().strftime("%d/%m/%Y %H:%M"),
+            datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M"),
             data_formatada, turno, leito, idade, tot_tqt, marca_tot, pronga, suporte, ventilacao, dados, proposta
         ]
         
